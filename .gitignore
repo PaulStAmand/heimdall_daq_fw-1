@@ -6,6 +6,7 @@ Firmware/_test_vectors/*.iq
 Firmware/_daq_core/*.out
 Firmware/_daq_core/*.o
 Firmware/_daq_core/*.a
+Firmware/_daq_core/*.bak
 Firmware/_daq_core/__pycache__/*.pyc
 Firmware/_daq_core/__pycache__/*.nbi
 Firmware/_daq_core/__pycache__/*.nbc

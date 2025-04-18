@@ -8,7 +8,7 @@ CFLAGS=-Wall -std=gnu99 -march=native -O2 -I.
 # Uncomment if you are using third party switches from ckoval on a Rpi device and have pigpio installed
 #PIGPIO=-lpigpio -DUSEPIGPIO
 
-#GPIO pins on the PI5
+#GPIO pins on the PI4 and PI5 using GOIPD library
 #Uncomment if you are using third party swithes and on PIi5 as that needs to use GPIOD
 GPIOD=-lgpiod -DUSEGPIOD
 
