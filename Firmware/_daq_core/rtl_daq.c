@@ -54,6 +54,10 @@
 #include <pigpio.h>
 #endif
 
+#ifdef USEGPIOD
+#include <gpiod.h>
+#endif
+
 #define NUM_BUFF 8  // Number of buffers used in the circular, coherent read buffer
 #define CFN "_data_control/rec_control_fifo" // Receiver control FIFO name 
 #define ASYNC_BUF_NUMBER 12// Number of buffers used by the asynchronous read 
@@ -441,6 +445,68 @@ int main( int argc, char** argv )
     gpioWrite(24, 0); /* disable antenna input 2 */
     #endif
 
+    #ifdef USEGPIOD
+    log_info("entering USEGPIOD code");
+    // GPIOD
+    int gpio_line = 23;
+    struct gpiod_chip_iter *chip_iter;
+    struct gpiod_chip *gpio_chip = NULL;
+    struct gpiod_line *gpio_line_23 = NULL;
+
+    log_info("get gpio_line for GPIO line 23 (pin 16 on the PI4/5");
+
+    chip_iter = gpiod_chip_iter_new();
+
+    if (!chip_iter) {
+        log_info("Failed to create chip iterator locating GPIO23");
+        return 1;
+    }
+
+    // Copy of chip name to reopen later (to avoid using freed chip pointer)
+    char chip_name_buf[128] = {0};
+
+    gpiod_foreach_chip(chip_iter, gpio_chip) {
+        gpio_line_23 = gpiod_chip_get_line(gpio_chip, gpio_line);
+        if (gpio_line_23) {
+            const char *name = gpiod_chip_name(gpio_chip);
+            strncpy(chip_name_buf, name, sizeof(chip_name_buf) - 1);
+            gpiod_line_release(gpio_line_23);  // Clean up early test
+            break;
+        }
+    }
+
+    log_info(chip_name_buf);
+
+    gpiod_chip_iter_free(chip_iter);
+    if (strlen(chip_name_buf) == 0) {
+        log_info("GPIO line %d not found on any chip.", gpio_line);
+        return 1;
+    }
+
+    // Reopen chip to safely request the line again
+    gpio_chip = gpiod_chip_open_by_name(chip_name_buf);
+    if (!gpio_chip) {
+        log_info("Failed to reopen chip");
+        return 1;
+    }
+
+    gpio_line_23 = gpiod_chip_get_line(gpio_chip, gpio_line);
+    if (!gpio_line_23) {
+        log_info("Failed to get line from chip");
+        gpiod_chip_close(gpio_chip);
+        return 1;
+    }
+
+    int ret = gpiod_line_request_output(gpio_line_23, "gpiod-krakenrf", 1);
+    if (ret < 0) {
+        fprintf(stderr, "Error requesting output on GPIO line: %s\n", strerror(errno));
+        log_info("Failed to request line as output");
+        gpiod_chip_close(gpio_chip);
+        return 1;
+    }
+    #endif
+
+
     /* Set parameters from the config file*/
     if (ini_parse(INI_FNAME, handler, &config) < 0) 
     {
@@ -826,6 +892,15 @@ int main( int argc, char** argv )
                     gpioWrite(23, 0); /* enable antenna input 1 by default */
                     gpioWrite(24, 0); /* disable antenna input 2 */
                     #endif
+
+                    // Use gpiod to set Pi GPIO for third party Kerberos CKOVAL switches
+                    #ifdef USEGPIOD
+                    // Maintain GPIO state, as we may change to ant 2 in the Python code
+                    gpio_23 = gpiod_line_get_value(gpio_line_23);
+
+                    // Disconnect antennas
+                    gpiod_line_set_value(gpio_line_23, 0);
+                    #endif
  
                     //rtlsdr_set_gpio(rtl_rec->dev, 1, 0);
                     log_info("Noise source turned on ");
@@ -840,6 +915,11 @@ int main( int argc, char** argv )
                     // PIGPIO
                     gpioWrite(23, gpio_23); /* enable antenna input 1 by default */
                     gpioWrite(24, gpio_24); /* disable antenna input 2 */
+                    #endif
+ 
+                    #ifdef USEGPIOD
+                    // GPIOD
+                    gpiod_line_set_value(gpio_line_23, gpio_23);
                     #endif
                 }
                 /*
@@ -892,6 +972,13 @@ int main( int argc, char** argv )
     #ifdef USEPIGPIO
     // PIGPIO
     gpioTerminate();
+    #endif
+
+    #ifdef USEGPIOD
+    // GPIOD
+    gpiod_line_release(gpio_line_23);
+    gpiod_chip_close(gpio_chip);
+
     #endif
 
     return 0;

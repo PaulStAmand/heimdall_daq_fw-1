@@ -8,6 +8,10 @@ CFLAGS=-Wall -std=gnu99 -march=native -O2 -I.
 # Uncomment if you are using third party switches from ckoval on a Rpi device and have pigpio installed
 #PIGPIO=-lpigpio -DUSEPIGPIO
 
+#GPIO pins on the PI5
+#Uncomment if you are using third party swithes and on PIi5 as that needs to use GPIOD
+GPIOD=-lgpiod -DUSEGPIOD
+
 # Uncomment if you installed GCC 11.2
 #CC=/usr/local/bin/gcc
 RM= rm -f
@@ -28,7 +32,7 @@ daq_util:
 	$(CC) $(CFLAGS) -c -o sh_mem_util.o sh_mem_util.c
 
 rtl_daq: iq_header.c log.c ini.c rtl_daq.c rtl_daq.h
-	$(CC) $(CFLAGS) log.o ini.o iq_header.o -o rtl_daq.out rtl_daq.c -lpthread -lzmq $(PIGPIO) -L. -lrtlsdr -lusb-1.0
+	$(CC) $(CFLAGS) log.o ini.o iq_header.o -o rtl_daq.out rtl_daq.c -lpthread -lzmq $(GPIOD)  $(PIGPIO) -L. -lrtlsdr -lusb-1.0
 
 rebuffer: sh_mem_util.c iq_header.c log.c ini.c rebuffer.c rtl_daq.h
 	$(CC) $(CFLAGS) sh_mem_util.o log.o ini.o iq_header.o -o rebuffer.out rebuffer.c -lrt -lm
